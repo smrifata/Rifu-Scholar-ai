@@ -7,7 +7,7 @@ export const setStoredApiKey = (key: string) => localStorage.setItem("gemini_api
 export async function generateAIResponse(apiKey: string, prompt: string, subject: string) {
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     // Contextualize the prompt for an HSC student
     const systemPrompt = `You are Rifu Ai, a helpful and friendly AI tutor for Bangladeshi HSC students. 
