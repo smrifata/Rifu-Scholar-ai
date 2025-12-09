@@ -3,13 +3,17 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { 
   Menu, Send, BookOpen, FlaskConical, Calculator, 
-  Dna, Monitor, Languages, Atom, LogOut, User, Plus
+  Dna, Monitor, Languages, Atom, LogOut, User, Plus, Settings, Key
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import logoMascot from "@assets/generated_images/rifu_ai_logo_mascot.png";
 import { cn } from "@/lib/utils";
+import { generateAIResponse, getStoredApiKey, setStoredApiKey } from "@/lib/gemini";
+import ReactMarkdown from "react-markdown";
 
 // Mock Data
 const subjects = [
@@ -42,16 +46,27 @@ export default function Chat() {
   ]);
   const [input, setInput] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isThinking, setIsThinking] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const storedKey = getStoredApiKey();
+    if (storedKey) setApiKey(storedKey);
+    
     // Scroll to bottom on new message
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
 
-  const handleSend = () => {
+  const handleSaveApiKey = () => {
+    setStoredApiKey(apiKey);
+    setIsSettingsOpen(false);
+  };
+
+  const handleSend = async () => {
     if (!input.trim()) return;
 
     const newMessage: Message = {
@@ -63,17 +78,36 @@ export default function Chat() {
 
     setMessages(prev => [...prev, newMessage]);
     setInput("");
+    setIsThinking(true);
 
-    // Mock AI Response
-    setTimeout(() => {
+    try {
+      let aiContent = "";
+      
+      if (!apiKey) {
+        // Fallback or Prompt to enter key
+        aiContent = "দয়া করে সেটিংস থেকে আপনার Google Gemini API Key সেট করুন। এটি সম্পূর্ণ ফ্রি। (Get it from: aistudio.google.com)";
+      } else {
+        aiContent = await generateAIResponse(apiKey, newMessage.content, selectedSubject.name);
+      }
+
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         role: "ai",
-        content: `খুব চমৎকার প্রশ্ন! ${selectedSubject.name} এর এই বিষয়টি বেশ মজার। আসলে... (This is a mock response for prototype)`,
+        content: aiContent,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, aiResponse]);
-    }, 1000);
+    } catch (error) {
+      const errorResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "ai",
+        content: "দুঃখিত, কোনো সমস্যা হয়েছে। দয়া করে আপনার ইন্টারনেট কানেকশন বা API Key চেক করুন।",
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorResponse]);
+    } finally {
+      setIsThinking(false);
+    }
   };
 
   const handleSubjectChange = (subject: typeof subjects[0]) => {
@@ -146,7 +180,40 @@ export default function Chat() {
         </div>
 
         <div className="mt-auto p-4 border-t border-gray-50">
-          <div className="flex items-center gap-3 mb-3 px-2">
+          <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground hover:text-primary mb-2">
+                <Settings size={16} className="mr-2" />
+                সেটিংস (API Key)
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Google Gemini API Key</DialogTitle>
+                <DialogDescription>
+                  Rifu Ai কে সচল করতে আপনার ফ্রি Gemini API Key টি এখানে দিন।
+                  <br />
+                  <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                    এখান থেকে ফ্রী Key সংগ্রহ করুন
+                  </a>
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="apiKey">API Key</Label>
+                  <Input 
+                    id="apiKey" 
+                    placeholder="AIzaSy..." 
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                  />
+                </div>
+                <Button onClick={handleSaveApiKey} className="w-full">Save Key</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <div className="flex items-center gap-3 mb-3 px-2 pt-2 border-t border-gray-50">
             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
               {user?.name?.[0] || "U"}
             </div>
@@ -180,11 +247,19 @@ export default function Chat() {
               </div>
             </div>
           </div>
+          
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="md:hidden text-muted-foreground"
+            onClick={() => setIsSettingsOpen(true)}
+          >
+            <Settings size={20} />
+          </Button>
         </header>
 
         {/* Messages */}
         <div 
-          ref={scrollRef}
           className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 bg-slate-50/50"
         >
           {messages.map((msg) => (
@@ -211,13 +286,35 @@ export default function Chat() {
               <div className={cn(
                 "rounded-2xl px-5 py-3 shadow-sm text-sm md:text-base leading-relaxed max-w-[85%]",
                 msg.role === "ai" 
-                  ? "bg-white text-gray-800 border border-gray-100 rounded-tl-none" 
+                  ? "bg-white text-gray-800 border border-gray-100 rounded-tl-none prose prose-sm max-w-none" 
                   : "bg-primary text-primary-foreground rounded-tr-none"
               )}>
-                {msg.content}
+                {msg.role === "ai" ? (
+                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                ) : (
+                  msg.content
+                )}
               </div>
             </motion.div>
           ))}
+          
+          {isThinking && (
+             <motion.div
+             initial={{ opacity: 0, y: 10 }}
+             animate={{ opacity: 1, y: 0 }}
+             className="flex gap-4 max-w-3xl mx-auto flex-row"
+           >
+             <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center shadow-sm mt-1 bg-white p-1">
+               <img src={logoMascot} alt="AI" className="w-full h-full object-contain" />
+             </div>
+             <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-none px-5 py-4 shadow-sm flex items-center gap-2">
+               <div className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+               <div className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+               <div className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+             </div>
+           </motion.div>
+          )}
+          <div ref={scrollRef} />
         </div>
 
         {/* Input Area */}
@@ -230,6 +327,7 @@ export default function Chat() {
                 onKeyDown={(e) => e.key === "Enter" && handleSend()}
                 placeholder={`${selectedSubject.name} সম্পর্কে কিছু জিজ্ঞেস করুন...`}
                 className="pr-12 py-6 rounded-full border-gray-200 focus-visible:ring-primary/20 bg-gray-50 focus:bg-white transition-all shadow-sm"
+                disabled={isThinking}
               />
               <Button 
                 size="icon" 
@@ -238,7 +336,7 @@ export default function Chat() {
                   input.trim() ? "bg-primary hover:bg-primary/90" : "bg-gray-200 hover:bg-gray-300 text-gray-500"
                 )}
                 onClick={handleSend}
-                disabled={!input.trim()}
+                disabled={!input.trim() || isThinking}
               >
                 <Send size={16} className={input.trim() ? "ml-0.5" : ""} />
               </Button>
