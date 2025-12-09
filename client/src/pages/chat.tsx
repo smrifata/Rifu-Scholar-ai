@@ -47,7 +47,7 @@ export default function Chat() {
   const [input, setInput] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isThinking, setIsThinking] = useState(false);
-  const [apiKey, setApiKey] = useState("");
+  const [apiKey, setApiKey] = useState("AIzaSyDeinDqF_xQ7Vj9s6YoXmtvZJOqlbTVM3o");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
