@@ -7,43 +7,32 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from "@/components/ui/label";
 import { 
   Menu, Send, BookOpen, FlaskConical, Calculator, 
-  Dna, Monitor, Languages, Atom, LogOut, User, Plus, Settings, Key
+  Dna, Monitor, Languages, Atom, LogOut, User, Plus, Settings
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import logoMascot from "@assets/generated_images/rifu_ai_logo_mascot.png";
 import { cn } from "@/lib/utils";
 import { generateAIResponse, getStoredApiKey, setStoredApiKey } from "@/lib/gemini";
+import { getConversations, createConversation, getMessages, saveMessage } from "@/lib/api";
+import type { Conversation, Message } from "@/../../shared/schema";
 import ReactMarkdown from "react-markdown";
 
-// Mock Data
 const subjects = [
   { id: "bangla", name: "বাংলা", icon: BookOpen, color: "text-red-500", bg: "bg-red-50" },
   { id: "english", name: "English", icon: Languages, color: "text-blue-500", bg: "bg-blue-50" },
   { id: "ict", name: "ICT", icon: Monitor, color: "text-cyan-500", bg: "bg-cyan-50" },
   { id: "physics", name: "পদার্থবিজ্ঞান", icon: Atom, color: "text-purple-500", bg: "bg-purple-50" },
-  { id: "chemistry", name: "রসায়ন", icon: FlaskConical, color: "text-green-500", bg: "bg-green-50" },
+  { id: "chemistry", name: "রসায়ন", icon: FlaskConical, color: "text-green-500", bg: "bg-green-50" },
   { id: "math", name: "উচ্চতর গণিত", icon: Calculator, color: "text-orange-500", bg: "bg-orange-50" },
   { id: "biology", name: "জীববিজ্ঞান", icon: Dna, color: "text-pink-500", bg: "bg-pink-50" },
 ];
 
-interface Message {
-  id: string;
-  role: "user" | "ai";
-  content: string;
-  timestamp: Date;
-}
-
 export default function Chat() {
   const { user, logout } = useAuth();
   const [selectedSubject, setSelectedSubject] = useState(subjects[0]);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      role: "ai",
-      content: `হ্যালো ${user?.name || "বন্ধু"}! আমি রিফু। আজকে আমরা ${subjects[0].name} নিয়ে কি পড়বো?`,
-      timestamp: new Date()
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [input, setInput] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isThinking, setIsThinking] = useState(false);
@@ -54,12 +43,57 @@ export default function Chat() {
   useEffect(() => {
     const storedKey = getStoredApiKey();
     if (storedKey) setApiKey(storedKey);
-    
-    // Scroll to bottom on new message
+    loadConversations();
+  }, []);
+
+  useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  const loadConversations = async () => {
+    try {
+      const convos = await getConversations();
+      setConversations(convos);
+    } catch (error) {
+      console.error("Failed to load conversations:", error);
+    }
+  };
+
+  const loadOrCreateConversation = async (subject: typeof subjects[0]) => {
+    try {
+      let conversation = conversations.find(c => c.subject === subject.id);
+      
+      if (!conversation) {
+        conversation = await createConversation(subject.id, `${subject.name} চ্যাট`);
+        setConversations(prev => [...prev, conversation!]);
+      }
+
+      setCurrentConversation(conversation);
+      
+      const msgs = await getMessages(conversation.id);
+      
+      if (msgs.length === 0) {
+        const welcomeMsg = await saveMessage(
+          conversation.id, 
+          "ai", 
+          `হ্যালো ${user?.name || "বন্ধু"}! আমি রিফু। আজকে আমরা ${subject.name} নিয়ে কি পড়বো?`
+        );
+        setMessages([welcomeMsg]);
+      } else {
+        setMessages(msgs);
+      }
+    } catch (error) {
+      console.error("Failed to load/create conversation:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      loadOrCreateConversation(selectedSubject);
+    }
+  }, [selectedSubject, user]);
 
   const handleSaveApiKey = () => {
     setStoredApiKey(apiKey);
@@ -67,65 +101,70 @@ export default function Chat() {
   };
 
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || !currentConversation) return;
 
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: input,
-      timestamp: new Date()
-    };
-
-    setMessages(prev => [...prev, newMessage]);
+    const userContent = input;
     setInput("");
     setIsThinking(true);
 
     try {
+      const userMsg = await saveMessage(currentConversation.id, "user", userContent);
+      setMessages(prev => [...prev, userMsg]);
+
       let aiContent = "";
       
       if (!apiKey) {
-        // Fallback or Prompt to enter key
-        aiContent = "দয়া করে সেটিংস থেকে আপনার Google Gemini API Key সেট করুন। এটি সম্পূর্ণ ফ্রি। (Get it from: aistudio.google.com)";
+        aiContent = "দয়া করে সেটিংস থেকে আপনার Google Gemini API Key সেট করুন। এটি সম্পূর্ণ ফ্রি। (Get it from: aistudio.google.com)";
       } else {
-        aiContent = await generateAIResponse(apiKey, newMessage.content, selectedSubject.name);
+        aiContent = await generateAIResponse(apiKey, userContent, selectedSubject.name);
       }
 
-      const aiResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "ai",
-        content: aiContent,
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, aiResponse]);
+      const aiMsg = await saveMessage(currentConversation.id, "ai", aiContent);
+      setMessages(prev => [...prev, aiMsg]);
     } catch (error) {
-      const errorResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "ai",
-        content: "দুঃখিত, কোনো সমস্যা হয়েছে। দয়া করে আপনার ইন্টারনেট কানেকশন বা API Key চেক করুন।",
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorResponse]);
+      console.error("Send message error:", error);
+      const errorContent = "দুঃখিত, কোনো সমস্যা হয়েছে। দয়া করে আপনার ইন্টারনেট কানেকশন বা API Key চেক করুন।";
+      
+      if (currentConversation) {
+        try {
+          const errorMsg = await saveMessage(currentConversation.id, "ai", errorContent);
+          setMessages(prev => [...prev, errorMsg]);
+        } catch (saveError) {
+          console.error("Failed to save error message:", saveError);
+        }
+      }
     } finally {
       setIsThinking(false);
     }
   };
 
-  const handleSubjectChange = (subject: typeof subjects[0]) => {
+  const handleSubjectChange = async (subject: typeof subjects[0]) => {
     setSelectedSubject(subject);
-    setMessages([{
-      id: Date.now().toString(),
-      role: "ai",
-      content: `চলো ${subject.name} নিয়ে আলোচনা করি। তোমার কোন টপিকটি কঠিন লাগছে?`,
-      timestamp: new Date()
-    }]);
+    setMessages([]);
     if (window.innerWidth < 768) {
       setIsSidebarOpen(false);
     }
   };
 
+  const handleNewChat = async () => {
+    try {
+      const conversation = await createConversation(selectedSubject.id, `${selectedSubject.name} চ্যাট`);
+      setConversations(prev => [...prev, conversation]);
+      setCurrentConversation(conversation);
+      
+      const welcomeMsg = await saveMessage(
+        conversation.id, 
+        "ai", 
+        `চলো ${selectedSubject.name} নিয়ে আলোচনা করি। তোমার কোন টপিকটি কঠিন লাগছে?`
+      );
+      setMessages([welcomeMsg]);
+    } catch (error) {
+      console.error("Failed to create new chat:", error);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-background font-sans overflow-hidden">
-      {/* Mobile Overlay */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/20 z-20 md:hidden"
@@ -133,7 +172,6 @@ export default function Chat() {
         />
       )}
 
-      {/* Sidebar */}
       <motion.aside 
         initial={false}
         animate={{ 
@@ -150,17 +188,23 @@ export default function Chat() {
         </div>
 
         <div className="p-3">
-          <Button variant="outline" className="w-full justify-start gap-2 mb-4 border-dashed text-muted-foreground hover:text-primary hover:border-primary/50">
+          <Button 
+            data-testid="button-new-chat"
+            variant="outline" 
+            className="w-full justify-start gap-2 mb-4 border-dashed text-muted-foreground hover:text-primary hover:border-primary/50"
+            onClick={handleNewChat}
+          >
             <Plus size={16} />
             নতুন চ্যাট
           </Button>
           
-          <h3 className="text-xs font-semibold text-muted-foreground mb-2 px-2 uppercase tracking-wider">বিষয়সমূহ</h3>
+          <h3 className="text-xs font-semibold text-muted-foreground mb-2 px-2 uppercase tracking-wider">বিষয়সমূহ</h3>
           <ScrollArea className="flex-1 h-[calc(100vh-200px)]">
             <div className="space-y-1 pr-3">
               {subjects.map((subject) => (
                 <button
                   key={subject.id}
+                  data-testid={`button-subject-${subject.id}`}
                   onClick={() => handleSubjectChange(subject)}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
@@ -182,7 +226,12 @@ export default function Chat() {
         <div className="mt-auto p-4 border-t border-gray-50">
           <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
             <DialogTrigger asChild>
-              <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground hover:text-primary mb-2">
+              <Button 
+                data-testid="button-settings"
+                variant="ghost" 
+                size="sm" 
+                className="w-full justify-start text-muted-foreground hover:text-primary mb-2"
+              >
                 <Settings size={16} className="mr-2" />
                 সেটিংস (API Key)
               </Button>
@@ -202,13 +251,20 @@ export default function Chat() {
                 <div className="space-y-2">
                   <Label htmlFor="apiKey">API Key</Label>
                   <Input 
-                    id="apiKey" 
+                    id="apiKey"
+                    data-testid="input-api-key"
                     placeholder="AIzaSy..." 
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                   />
                 </div>
-                <Button onClick={handleSaveApiKey} className="w-full">Save Key</Button>
+                <Button 
+                  data-testid="button-save-key"
+                  onClick={handleSaveApiKey} 
+                  className="w-full"
+                >
+                  Save Key
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -218,23 +274,33 @@ export default function Chat() {
               {user?.name?.[0] || "U"}
             </div>
             <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-medium truncate">{user?.name}</p>
+              <p className="text-sm font-medium truncate" data-testid="text-user-name">{user?.name}</p>
               <p className="text-xs text-muted-foreground truncate">HSC Candidate</p>
             </div>
           </div>
-          <Button variant="ghost" size="sm" className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50" onClick={logout}>
+          <Button 
+            data-testid="button-logout"
+            variant="ghost" 
+            size="sm" 
+            className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50" 
+            onClick={logout}
+          >
             <LogOut size={16} className="mr-2" />
             লগআউট
           </Button>
         </div>
       </motion.aside>
 
-      {/* Main Chat Area */}
       <main className="flex-1 flex flex-col relative h-full w-full">
-        {/* Header */}
         <header className="h-16 border-b border-gray-100 flex items-center justify-between px-4 bg-white/80 backdrop-blur-md sticky top-0 z-10">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="md:hidden">
+            <Button 
+              data-testid="button-toggle-sidebar"
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
+              className="md:hidden"
+            >
               <Menu size={20} />
             </Button>
             <div className="flex items-center gap-2">
@@ -258,13 +324,13 @@ export default function Chat() {
           </Button>
         </header>
 
-        {/* Messages */}
         <div 
           className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 bg-slate-50/50"
         >
           {messages.map((msg) => (
             <motion.div
               key={msg.id}
+              data-testid={`message-${msg.id}`}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className={cn(
@@ -300,6 +366,7 @@ export default function Chat() {
           
           {isThinking && (
              <motion.div
+             data-testid="indicator-thinking"
              initial={{ opacity: 0, y: 10 }}
              animate={{ opacity: 1, y: 0 }}
              className="flex gap-4 max-w-3xl mx-auto flex-row"
@@ -317,11 +384,11 @@ export default function Chat() {
           <div ref={scrollRef} />
         </div>
 
-        {/* Input Area */}
         <div className="p-4 bg-white border-t border-gray-100">
           <div className="max-w-3xl mx-auto relative flex items-center gap-2">
             <div className="relative flex-1">
               <Input
+                data-testid="input-message"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSend()}
@@ -330,6 +397,7 @@ export default function Chat() {
                 disabled={isThinking}
               />
               <Button 
+                data-testid="button-send"
                 size="icon" 
                 className={cn(
                   "absolute right-1.5 top-1.5 h-9 w-9 rounded-full transition-all",
