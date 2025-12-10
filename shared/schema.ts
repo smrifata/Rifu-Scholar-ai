@@ -1,10 +1,9 @@
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, serial, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
   password: text("password").notNull(),
@@ -13,7 +12,7 @@ export const users = pgTable("users", {
 
 export const conversations = pgTable("conversations", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   subject: text("subject").notNull(),
   title: text("title").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

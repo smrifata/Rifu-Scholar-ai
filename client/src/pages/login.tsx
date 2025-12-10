@@ -37,124 +37,168 @@ export default function Login() {
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden font-sans">
-      <div 
-        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
+      <div
+        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat opacity-20"
         style={{ backgroundImage: `url(${bgImage})` }}
       >
         <div className="absolute inset-0 bg-white/30 backdrop-blur-sm"></div>
       </div>
 
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
-        className="z-10 w-full max-w-md px-4"
-      >
-        <Card className="glass border-white/40 shadow-2xl overflow-hidden">
-          <CardHeader className="text-center pt-10 pb-2">
-            <div className="mx-auto mb-6 relative w-24 h-24 rounded-full bg-white shadow-lg flex items-center justify-center p-1">
-              <img 
-                src={logoMascot} 
-                alt="Rifu Ai Mascot" 
-                className="w-full h-full object-contain rounded-full"
-              />
-              <div className="absolute bottom-0 right-0 w-6 h-6 bg-green-500 border-4 border-white rounded-full"></div>
-            </div>
-            <CardTitle className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600 mb-2">
-              Rifu Ai
-            </CardTitle>
-            <CardDescription className="text-gray-600 text-lg">
-              তোমার পার্সোনাল HSC টিউটর
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6 pb-10 px-8">
-            <p className="text-sm text-muted-foreground leading-relaxed text-center">
-              Physics, Chemistry, Math বা Biology - যেকোনো বিষয়ে হেল্প পেতে এখনই {isSignup ? "সাইন আপ" : "লগইন"} করো।
-            </p>
+      <div className="z-10 w-full max-w-6xl px-4 grid grid-cols-1 lg:grid-cols-2 gap-8 items-center justify-center h-full">
+        {/* Login Card - Left (or Top on Mobile) */}
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="w-full max-w-md mx-auto"
+        >
+          <Card className="glass border-white/40 shadow-2xl overflow-hidden">
+            <CardHeader className="text-center pt-10 pb-2">
+              <div className="mx-auto mb-6 relative w-24 h-24 rounded-full bg-white shadow-lg flex items-center justify-center p-1">
+                <img
+                  src={logoMascot}
+                  alt="Rifu Ai Mascot"
+                  className="w-full h-full object-contain rounded-full"
+                />
+                <div className="absolute bottom-0 right-0 w-6 h-6 bg-green-500 border-4 border-white rounded-full"></div>
+              </div>
+              <CardTitle className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600 mb-2">
+                Rifu Ai
+              </CardTitle>
+              <CardDescription className="text-gray-600 text-lg">
+                তোমার পার্সোনাল HSC টিউটর
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6 pb-10 px-8">
+              <p className="text-sm text-muted-foreground leading-relaxed text-center">
+                Physics, Chemistry, Math বা Biology - যেকোনো বিষয়ে হেল্প পেতে এখনই {isSignup ? "সাইন আপ" : "লগইন"} করো।
+              </p>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {isSignup && (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {isSignup && (
+                  <div className="space-y-2">
+                    <Label htmlFor="name" data-testid="label-name">নাম</Label>
+                    <Input
+                      id="name"
+                      data-testid="input-name"
+                      type="text"
+                      placeholder="তোমার নাম লিখো"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                      disabled={isLoading}
+                    />
+                  </div>
+                )}
+
                 <div className="space-y-2">
-                  <Label htmlFor="name" data-testid="label-name">নাম</Label>
+                  <Label htmlFor="email" data-testid="label-email">ইমেইল</Label>
                   <Input
-                    id="name"
-                    data-testid="input-name"
-                    type="text"
-                    placeholder="তোমার নাম লিখো"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    id="email"
+                    data-testid="input-email"
+                    type="email"
+                    placeholder="student@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     required
                     disabled={isLoading}
                   />
                 </div>
-              )}
-              
-              <div className="space-y-2">
-                <Label htmlFor="email" data-testid="label-email">ইমেইল</Label>
-                <Input
-                  id="email"
-                  data-testid="input-email"
-                  type="email"
-                  placeholder="student@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  disabled={isLoading}
-                />
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password" data-testid="label-password">পাসওয়ার্ড</Label>
-                <Input
-                  id="password"
-                  data-testid="input-password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  disabled={isLoading}
-                />
-              </div>
-
-              {error && (
-                <div className="text-sm text-red-500 text-center" data-testid="text-error">
-                  {error}
+                <div className="space-y-2">
+                  <Label htmlFor="password" data-testid="label-password">পাসওয়ার্ড</Label>
+                  <Input
+                    id="password"
+                    data-testid="input-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    disabled={isLoading}
+                  />
                 </div>
-              )}
 
-              <Button 
-                type="submit"
-                data-testid="button-submit"
-                size="lg" 
-                className="w-full h-12 bg-primary hover:bg-primary/90 text-white shadow-sm hover:shadow-md transition-all text-base font-medium"
-                disabled={isLoading}
-              >
-                {isLoading ? "অপেক্ষা করুন..." : isSignup ? "সাইন আপ করুন" : "লগইন করুন"}
-              </Button>
-            </form>
-            
-            <div className="text-center">
-              <Button
-                type="button"
-                data-testid="button-toggle-mode"
-                variant="link"
-                className="text-sm text-primary"
-                onClick={() => {
-                  setIsSignup(!isSignup);
-                  setError("");
-                }}
-              >
-                {isSignup ? "আগে থেকেই একাউন্ট আছে? লগইন করুন" : "নতুন একাউন্ট তৈরি করুন"}
-              </Button>
-            </div>
+                {error && (
+                  <div className="text-sm text-red-500 text-center" data-testid="text-error">
+                    {error}
+                  </div>
+                )}
 
-            <div className="text-xs text-muted-foreground mt-4 text-center">
-              HSC সিলেবাস অনুযায়ী সকল বিষয়ের সাপোর্ট
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+                <Button
+                  type="submit"
+                  data-testid="button-submit"
+                  size="lg"
+                  className="w-full h-12 bg-primary hover:bg-primary/90 text-white shadow-sm hover:shadow-md transition-all text-base font-medium"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "অপেক্ষা করুন..." : isSignup ? "সাইন আপ করুন" : "লগইন করুন"}
+                </Button>
+              </form>
+
+              <div className="text-center">
+                <Button
+                  type="button"
+                  data-testid="button-toggle-mode"
+                  variant="link"
+                  className="text-sm text-primary"
+                  onClick={() => {
+                    setIsSignup(!isSignup);
+                    setError("");
+                  }}
+                >
+                  {isSignup ? "আগে থেকেই একাউন্ট আছে? লগইন করুন" : "নতুন একাউন্ট তৈরি করুন"}
+                </Button>
+              </div>
+
+              <div className="text-xs text-muted-foreground mt-4 text-center">
+                HSC সিলেবাস অনুযায়ী সকল বিষয়ের সাপোর্ট
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Developer Info - Right Side (Visible on large screens) */}
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
+          className="hidden lg:flex flex-col justify-center text-left space-y-8 p-8"
+        >
+          <div className="space-y-4">
+            <h2 className="text-4xl font-bold text-gray-800 leading-tight">
+              স্মার্ট স্টাডি,<br />
+              <span className="text-primary">স্মার্ট রেজাল্ট</span>
+            </h2>
+            <p className="text-lg text-gray-600 max-w-md">
+              Rifu Ai তোমাকে যেকোনো কঠিন টপিক সহজ করে বুঝিয়ে দেবে। পড়ার টেবিলে এখন আর একা নও!
+            </p>
+          </div>
+
+          <Card className="glass border-white/40 shadow-xl max-w-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-medium text-muted-foreground uppercase tracking-wide">Developer Info</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="font-semibold text-gray-900 text-lg">SM Rifat Ahmed</p>
+                <p className="text-sm text-primary">Lead Developer</p>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center gap-3 text-sm text-gray-600 bg-white/50 p-2 rounded-md">
+                  <span className="font-bold text-indigo-600 w-16">Discord:</span>
+                  <span>sm.exe.rifu</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-gray-600 bg-white/50 p-2 rounded-md">
+                  <span className="font-bold text-red-600 w-16">Email:</span>
+                  <span>smrifatahmed@gmail.com</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
     </div>
   );
 }

@@ -4,10 +4,10 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 export const getStoredApiKey = () => localStorage.getItem("gemini_api_key");
 export const setStoredApiKey = (key: string) => localStorage.setItem("gemini_api_key", key);
 
-export async function generateAIResponse(apiKey: string, prompt: string, subject: string) {
+export async function generateAIResponse(apiKey: string, prompt: string, subject: string, imageBase64?: string) {
   try {
     const genAI = new GoogleGenerativeAI(apiKey.trim());
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
     // Contextualize the prompt for an HSC student
     const systemPrompt = `You are Rifu Ai, a helpful and friendly AI tutor for Bangladeshi HSC students. 
@@ -18,11 +18,24 @@ export async function generateAIResponse(apiKey: string, prompt: string, subject
     
     User Question: ${prompt}`;
 
-    const result = await model.generateContent(systemPrompt);
+    let result;
+    if (imageBase64) {
+      const imagePart = {
+        inlineData: {
+          data: imageBase64.split(",")[1], // Remove data:image/jpeg;base64, prefix
+          mimeType: "image/jpeg", // Assuming JPEG/PNG, Gemini handles common types
+        },
+      };
+      result = await model.generateContent([systemPrompt, imagePart]);
+    } else {
+      result = await model.generateContent(systemPrompt);
+    }
+
     const response = await result.response;
     return response.text();
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error calling Gemini API:", error);
-    throw error;
+    // Return the error message to display in the UI
+    throw new Error(error.message || "Failed to generate response");
   }
 }
